@@ -5,7 +5,7 @@
 *.o
 *.d
 
-Chaos*
+Singularity*
 !src/Singularity.cpp
 
 # Perf
