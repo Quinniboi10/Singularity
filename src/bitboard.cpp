@@ -7,7 +7,11 @@
 #include "square.h"
 
 namespace chess {
-    BitBoard::BitBoard(u64 data) {
+    BitBoard BitBoard::all() {
+        return BitBoard(static_cast<u64>(-1));
+    }
+
+    BitBoard::BitBoard(const u64 data) {
         this->data = data;
     }
 
@@ -24,8 +28,8 @@ namespace chess {
         return this->data != 0;
     }
 
-    bool BitBoard::read_bit(const usize idx) const {
-        return this->data & (1ULL << idx);
+    bool BitBoard::read_sq(const Square sq) const {
+        return this->data & (1ULL << sq.sq);
     }
 
     Square BitBoard::get_lsb() const {
@@ -39,8 +43,8 @@ namespace chess {
         for (int row = 7; row >= 0; row--) {
             os << "\u2502 ";
             for (usize col = 0; col < 8; col++) {
-                const usize idx = row * 8 + col;
-                os << (read_bit(idx) ? "\u2588" : " ") << " ";
+                const Square sq = Square(row * 8 + col);
+                os << (read_sq(sq) ? "\u2588" : " ") << " ";
             }
             os << "\u2502 " << row + 1 << "\n";
         }
@@ -50,12 +54,12 @@ namespace chess {
     }
 
     void BitBoard::enable(const Square sq) {
-        traced_assert(read_bit(sq.sq) == false);
+        traced_assert(read_sq(sq) == false);
         this->data |= 1ULL << sq.sq;
     }
 
     void BitBoard::disable(const Square sq) {
-        traced_assert(read_bit(sq.sq) == true);
+        traced_assert(read_sq(sq) == true);
         this->data &= ~(1ULL << sq.sq);
     }
 }

@@ -1,14 +1,36 @@
+#pragma once
+
 #include <ostream>
 
 namespace chess {
     class BitBoard;
+    enum Direction : int;
+
+    enum File {
+        FILE_A, FILE_B, FILE_C, FILE_D, FILE_E, FILE_F, FILE_G, FILE_H
+    };
+    enum Rank {
+        RANK_1, RANK_2, RANK_3, RANK_4, RANK_5, RANK_6, RANK_7, RANK_8
+    };
 
     struct Square {
         int sq;
 
+        constexpr Square() : sq(-1) {}
+        Square(const std::string& sq);
         constexpr explicit Square(int sq) : sq(sq) {}
+        Square(Rank rank, File file);
 
         BitBoard as_bb() const;
+
+        std::string str() const;
+
+        bool is_none() const;
+
+        Square operator+(const Direction& dir) const;
+        bool operator==(const Square& other) const;
+
+        Square operator+=(const Direction& dir);
     };
 
     std::ostream& operator<<(std::ostream& os, const Square sq);

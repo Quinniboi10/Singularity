@@ -1,10 +1,43 @@
 #include "square.h"
 
+#include <sstream>
+
 #include "bitboard.h"
 
 namespace chess {
+    Square::Square(const std::string& sq) {
+        this->sq = (sq[1] - '1') * 8 + (sq[0] - 'a');
+    }
+
+    Square::Square(const Rank rank, const File file) {
+        this->sq = rank * 8 + file;
+    }
+
     BitBoard Square::as_bb() const {
         return BitBoard(1ULL << this->sq);
+    }
+
+    std::string Square::str() const {
+        std::ostringstream os;
+        os << *this;
+        return os.str();
+    }
+
+    bool Square::is_none() const {
+        return *this == NO_SQUARE;
+    }
+
+    Square Square::operator+(const Direction& dir) const {
+        return Square(this->sq + dir);
+    }
+
+    bool Square::operator==(const Square& other) const {
+        return this->sq == other.sq;
+    }
+    
+    Square Square::operator+=(const Direction& dir) {
+        this->sq += dir;
+        return *this;
     }
 
     std::ostream& operator<<(std::ostream& os, const Square sq) {

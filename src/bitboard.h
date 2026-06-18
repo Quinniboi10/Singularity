@@ -1,3 +1,5 @@
+#pragma once
+
 #include <string>
 #include <array>
 
@@ -10,13 +12,15 @@ namespace chess {
         u64 data;
 
         public:
-        BitBoard(u64 data);
+        static BitBoard all();
+
+        BitBoard(u64 data = 0);
 
         BitBoard lshift(usize shift) const;
         BitBoard rshift(usize shift) const;
 
         bool has_data() const;
-        bool read_bit(usize idx) const;
+        bool read_sq(Square idx) const;
 
         Square get_lsb() const;
 
@@ -25,8 +29,11 @@ namespace chess {
         void enable(Square sq);
         void disable(Square sq);
 
-        BitBoard operator|(const BitBoard& other) {
+        BitBoard operator|(const BitBoard& other) const {
             return BitBoard(this->data | other.data);
+        }
+        BitBoard operator&(const BitBoard& other) const {
+            return BitBoard(this->data & other.data);
         }
     };
 }
