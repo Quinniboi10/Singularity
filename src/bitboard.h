@@ -29,11 +29,38 @@ namespace chess {
         void enable(Square sq);
         void disable(Square sq);
 
+        u64 as_u64() const;
+
         BitBoard operator|(const BitBoard& other) const {
             return BitBoard(this->data | other.data);
         }
         BitBoard operator&(const BitBoard& other) const {
             return BitBoard(this->data & other.data);
+        }
+        BitBoard operator^(const BitBoard& other) const {
+            return BitBoard(this->data ^ other.data);
+        }
+        BitBoard operator~() const {
+            return BitBoard(~this->data);
+        }
+        
+        BitBoard operator+(const BitBoard& other) const {
+            return BitBoard(this->data + other.data);
+        }
+        BitBoard operator-(const BitBoard& other) const {
+            return BitBoard(this->data - other.data);
+        }
+        BitBoard operator*(const BitBoard& other) const {
+            return BitBoard(this->data * other.data);
+        }
+
+        BitBoard& operator&=(const BitBoard& other) {
+            this->data &= other.data;
+            return *this;
+        }
+
+        explicit operator bool() const {
+            return static_cast<bool>(this->data);
         }
     };
 }

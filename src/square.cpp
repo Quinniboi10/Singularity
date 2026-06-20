@@ -27,6 +27,14 @@ namespace chess {
         return *this == NO_SQUARE;
     }
 
+    File Square::file() const {
+        return static_cast<File>(this->sq & 0b111);
+    }
+
+    Rank Square::rank() const {
+        return static_cast<Rank>(this->sq >> 3);
+    }
+
     Square Square::operator+(const Direction& dir) const {
         return Square(this->sq + dir);
     }
@@ -35,7 +43,7 @@ namespace chess {
         return this->sq == other.sq;
     }
     
-    Square Square::operator+=(const Direction& dir) {
+    Square& Square::operator+=(const Direction& dir) {
         this->sq += dir;
         return *this;
     }

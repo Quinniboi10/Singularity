@@ -1,7 +1,7 @@
 #include <iostream>
 #include <string>
 
-#include "board.h"
+#include "movegen.h"
 
 #ifdef _WIN32
     #include <windows.h>
@@ -11,6 +11,8 @@ int main() {
     #ifdef _WIN32
         SetConsoleOutputCP(CP_UTF8);
     #endif
+
+    chess::movegen::initialize_movegen_databases();
 
     std::string fen;
     while (true) {

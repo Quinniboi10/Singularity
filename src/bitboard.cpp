@@ -62,4 +62,8 @@ namespace chess {
         traced_assert(read_sq(sq) == true);
         this->data &= ~(1ULL << sq.sq);
     }
+
+    u64 BitBoard::as_u64() const {
+        return this->data;
+    }
 }

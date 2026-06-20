@@ -183,6 +183,10 @@ namespace chess {
         this->castling_rights[castle_idx(c, side)] = NO_SQUARE;
     }
 
+    Square Board::castle_sq(const Color c, const CastlingSide side) const {
+        return this->castling_rights[castle_idx(c, side)];
+    }
+
     std::string Board::fen() const {
         std::string res = "";
 

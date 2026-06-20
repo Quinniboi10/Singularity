@@ -27,10 +27,13 @@ namespace chess {
 
         bool is_none() const;
 
+        File file() const;
+        Rank rank() const;
+
         Square operator+(const Direction& dir) const;
         bool operator==(const Square& other) const;
 
-        Square operator+=(const Direction& dir);
+        Square& operator+=(const Direction& dir);
     };
 
     std::ostream& operator<<(std::ostream& os, const Square sq);
