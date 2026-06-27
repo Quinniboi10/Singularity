@@ -2,13 +2,18 @@
 
 #include <bit>
 
+#include "stopwatch.h"
 #include "bitboard.h"
-#include "multiarray.h"
+#include "assert.h"
 #include "square.h"
+#include "board.h"
+#include "utils.h"
+#include "move.h"
 
 namespace chess::movegen {
-    MultiArray<BitBoard, 64, 64> LINE{};
-    MultiArray<BitBoard, 64, 64> LINESEG{};
+    MultiArray<BitBoard, 64, 64> LINE;
+    MultiArray<BitBoard, 64, 64> LINESEG;
+    MultiArray<BitBoard, 2, 64> PAWN_ATTACK_BB;
 
     // Magic code from https://github.com/nkarve/surge/blob/master/src/tables.cpp
     constexpr int diagonal_of(Square s) { return 7 + s.rank() - s.file(); }
@@ -159,12 +164,12 @@ namespace chess::movegen {
     }
 
     // Returns the attacks bitboard for a bishop at a given square, using the magic lookup table
-    u64 get_bishop_attacks(Square sq, u64 occ) { return BISHOP_ATTACKS[sq.sq][((occ & BISHOP_ATTACK_MASKS[sq.sq]) * BISHOP_MAGICS[sq.sq]) >> BISHOP_ATTACK_SHIFTS[sq.sq]]; }
+    BitBoard get_bishop_attacks(Square sq, BitBoard occ) { return BISHOP_ATTACKS[sq.sq][((occ & BISHOP_ATTACK_MASKS[sq.sq]) * BISHOP_MAGICS[sq.sq]).as_u64() >> BISHOP_ATTACK_SHIFTS[sq.sq]]; }
 
     // Returns the 'x-ray attacks' for a bishop at a given square. X-ray attacks cover squares that are not immediately
     // accessible by the rook, but become available when the immediate blockers are removed from the board
-    u64 get_xray_bishop_attacks(Square square, u64 occ, u64 blockers) {
-        u64 attacks = get_bishop_attacks(square, occ);
+    BitBoard get_xray_bishop_attacks(Square square, BitBoard occ, BitBoard blockers) {
+        BitBoard attacks = get_bishop_attacks(square, occ);
         blockers &= attacks;
         return attacks ^ get_bishop_attacks(square, occ ^ blockers);
     }
@@ -219,11 +224,359 @@ namespace chess::movegen {
         }
     }
 
+    void initialize_pawn_attack_bb() {
+        const auto fill_by_color = [&](const Color c) {
+            for (u8 sq = 0; sq < 64; sq++) {
+                const BitBoard sq_bb = Square(sq).as_bb();
+                const Direction push_dir = c == WHITE ? NORTH : SOUTH;
+                PAWN_ATTACK_BB[c][sq] = (sq_bb & ~mask(FILE_H)).shift(push_dir + EAST) | (sq_bb & ~mask(FILE_A)).shift(push_dir + WEST);
+            }
+        };
+
+        fill_by_color(WHITE);
+        fill_by_color(BLACK);
+    }
+
     // Initializes lookup tables for rook moves, bishop moves, in-between squares, aligned squares and pseudolegal moves
     void initialize_movegen_databases() {
         initialize_rook_attacks();
         initialize_bishop_attacks();
         initialize_squares_between();
         initialize_lines();
+        initialize_pawn_attack_bb();
+    }
+
+    BitBoard line(Square sq1, Square sq2) {
+        return LINE[sq1.sq][sq2.sq];
+    }
+
+    BitBoard line_segment(Square sq1, Square sq2) {
+        return LINESEG[sq1.sq][sq2.sq];
+    }
+    
+    BitBoard mask(Rank r) {
+        return MASK_RANK[r];
+    }
+    BitBoard mask(File f) {
+        return MASK_FILE[f];
+    }
+
+    BitBoard pawn_attacks_bb(const Color c, const Square sq) {
+        return PAWN_ATTACK_BB[c][sq.sq];
+    }
+
+    BitBoard pawn_attacks(const Color c, const Board& board) {
+        const Direction push_dir = c == WHITE ? NORTH : SOUTH;
+        const BitBoard pawns = board.pieces(c, PAWN);
+        const BitBoard capture_east = (pawns & ~MASK_FILE[FILE_H]).shift(push_dir + EAST);
+        const BitBoard capture_west = (pawns & ~MASK_FILE[FILE_A]).shift(push_dir + WEST);
+
+        return capture_east | capture_west;
+    }
+
+    BitBoard knight_attacks(const Color c, const Board& board) {
+        BitBoard attacks = 0;
+        
+        BitBoard knight_bb = board.pieces(c, KNIGHT);
+
+        while (knight_bb)
+            attacks |= KNIGHT_ATTACKS[knight_bb.pop_lsb().sq];
+
+        return attacks;
+    }
+    
+    BitBoard diagonal_attacks(const Color c, const Board& board) {
+        BitBoard attacks = 0;
+        
+        BitBoard diag_bb = board.pieces(c, BISHOP, QUEEN);
+        const u64 occ = board.pieces().as_u64();
+
+        while (diag_bb)
+            attacks |= get_bishop_attacks(diag_bb.pop_lsb(), occ);
+
+        return attacks;
+    }
+
+    BitBoard ortho_attacks(const Color c, const Board& board) {
+        BitBoard attacks = 0;
+
+        BitBoard ortho_bb = board.pieces(c, ROOK, QUEEN);
+        const u64 occ = board.pieces().as_u64();
+
+        while (ortho_bb)
+            attacks |= get_rook_attacks(ortho_bb.pop_lsb(), occ);
+
+        return attacks;
+    }
+
+    BitBoard king_attacks(const Color c, const Board& board) {
+        return KING_ATTACKS[board.pieces(c, KING).get_lsb().sq];
+    }
+
+    BitBoard generate_attacks(const Color c, const Board& b) {
+        return pawn_attacks(c, b) | knight_attacks(c, b) | diagonal_attacks(c, b) | ortho_attacks(c, b) | king_attacks(c, b);
+    }
+
+    void deserialize_normal(MoveList& moves, const Square from, BitBoard toBB) {
+        while (toBB)
+            moves.add(from, toBB.pop_lsb());
+    }
+
+    // Non-king moves and non-EP moves
+    template<PieceType pt>
+    void generate_standard(const Board& board, MoveList& moves, const auto& movegenFunction) {
+        BitBoard piece_bb = board.pieces(board.stm, pt);
+
+        if constexpr (pt == BISHOP || pt == ROOK)
+            piece_bb |= board.pieces(board.stm, QUEEN);
+
+        const Square king_sq = board.pieces(board.stm, KING).get_lsb();
+        BitBoard pinned_bb = piece_bb & board.pinned;
+        BitBoard free_bb = piece_bb ^ pinned_bb;
+
+        while (free_bb) {
+            const Square from = free_bb.pop_lsb();
+
+            const BitBoard to_bb = movegenFunction(from) & ~board.pieces(board.stm) & board.check_mask;
+
+            deserialize_normal(moves, from, to_bb);
+        }
+
+        while (pinned_bb) {
+            const Square from = pinned_bb.pop_lsb();
+
+            const BitBoard to_bb = movegenFunction(from) & ~board.pieces(board.stm) & board.check_mask & line(king_sq, from);
+
+            deserialize_normal(moves, from, to_bb);
+        }
+    }
+
+    void pawn_moves(const Board& board, MoveList& moves) {
+        const Color stm = board.stm;
+
+        const BitBoard pawns = board.pieces(stm, PAWN);
+        const BitBoard empty = ~board.pieces();
+        const BitBoard enemy = board.pieces(~stm);
+
+        const Direction push_dir = board.rel_shift_dir(NORTH);
+
+        const Square king_sq = board.pieces(stm, KING).get_lsb();
+
+        const BitBoard single_push_pawns = pawns & (~board.pinned | mask(king_sq.file()));
+        const BitBoard single_push = single_push_pawns.shift(push_dir) & empty;
+        const BitBoard double_push = single_push.shift(push_dir) & empty & (stm == WHITE ? mask(RANK_4) : mask(RANK_5));
+
+        const auto cap_e_mask = board.stm == WHITE ? [](const Square sq) { return MASK_DIAGONAL[diagonal_of(sq)]; } : [](const Square sq) { return MASK_ANTI_DIAGONAL[antidiagonal_of(sq)]; };
+        const auto cap_w_mask = board.stm == WHITE ? [](const Square sq) { return MASK_ANTI_DIAGONAL[antidiagonal_of(sq)]; } : [](const Square sq) { return MASK_DIAGONAL[diagonal_of(sq)]; };
+
+        const BitBoard cap_e_pawns = (pawns & ~board.pinned) | (pawns & cap_e_mask(king_sq));
+        const BitBoard cap_w_pawns = (pawns & ~board.pinned) | (pawns & cap_w_mask(king_sq));
+        const BitBoard cap_e = cap_e_pawns.shift(push_dir + EAST) & enemy & ~mask(FILE_A);
+        const BitBoard cap_w = cap_w_pawns.shift(push_dir + WEST) & enemy & ~mask(FILE_H);
+
+        const auto process_bb = [&]<bool can_promo>(Direction shift, BitBoard bb) {
+            // Ignore promos at compile time since some moves like double pushes cannot promote
+            if constexpr (can_promo) {
+                BitBoard promo_bb = bb & (mask(RANK_1, RANK_8));
+                bb ^= promo_bb;
+
+                while (promo_bb > 0) {
+                    const Square sq = promo_bb.pop_lsb();
+
+                    moves.add(sq - shift, sq, QUEEN);
+                    moves.add(sq - shift, sq, ROOK);
+                    moves.add(sq - shift, sq, BISHOP);
+                    moves.add(sq - shift, sq, KNIGHT);
+                }
+            }
+
+            while (bb > 0) {
+                const Square sq = bb.pop_lsb();
+
+                moves.add(sq - shift, sq);
+            }
+        };
+
+        process_bb.operator()<true>(push_dir, single_push & board.check_mask);
+        process_bb.operator()<false>(push_dir * 2, double_push & board.check_mask);
+
+        process_bb.operator()<true>(push_dir + EAST, cap_e & board.check_mask);
+        process_bb.operator()<true>(push_dir + WEST, cap_w & board.check_mask);
+
+        // En passant is a bit ugly but it's fairly rare so we'll let it slide here
+        if (board.ep_square != NO_SQUARE) {
+            BitBoard ep_move = pawn_attacks_bb(~board.stm, board.ep_square) & board.pieces(board.stm, PAWN);
+
+            while (ep_move) {
+                const Square from = ep_move.pop_lsb();
+
+                const Move m(from, board.ep_square, EN_PASSANT);
+                const Board new_board = board.move(m);
+                
+                if (!new_board.attacking(new_board.stm).read_sq(king_sq))
+                    moves.add(m);
+            }
+        }
+    }
+
+    void knight_moves(const Board& board, MoveList& moves) {
+        const auto get_moves = [](Square from) -> BitBoard { return KNIGHT_ATTACKS[from.sq]; };
+        generate_standard<KNIGHT>(board, moves, get_moves);
+    }
+
+    void diag_moves(const Board& board, MoveList& moves) {
+        const BitBoard occ = board.pieces();
+        const auto get_moves = [occ](Square from) -> BitBoard { return get_bishop_attacks(from, occ.as_u64()); };
+        generate_standard<BISHOP>(board, moves, get_moves);
+    }
+
+    void ortho_moves(const Board& board, MoveList& moves) {
+        const BitBoard occ = board.pieces();
+        const auto get_moves = [occ](Square from) -> BitBoard { return get_rook_attacks(from, occ.as_u64()); };
+        generate_standard<ROOK>(board, moves, get_moves);
+    }
+
+    void king_moves(const Board& board, MoveList& moves) {
+        const Square king_sq = board.pieces(board.stm, KING).get_lsb();
+
+        traced_assert(king_sq.is_real());
+
+        BitBoard king_moves = KING_ATTACKS[king_sq.sq];
+        king_moves &= ~board.pieces(board.stm) & ~board.attacking(~board.stm);
+
+        BitBoard checkers = board.checkers;
+
+        while (checkers) {
+            const Square checker = checkers.pop_lsb();
+            const PieceType pt = board.read_sq(checker);
+            if (pt == QUEEN || pt == ROOK || pt == BISHOP)
+                king_moves &= ~(line(king_sq, checker) ^ checker.as_bb());
+        }
+
+        while (king_moves > 0)
+            moves.add(king_sq, king_moves.pop_lsb());
+
+        const auto legalCastle = [&](const CastlingSide kingside) {
+            const Square from = king_sq;
+            const Square to = board.castle_sq(board.stm, kingside);
+
+            // std::cout << board.attacking(board.stm).str() << std::endl << std::endl;
+            // std::cout << board.attacking(~board.stm).str() << std::endl << std::endl;
+
+            // std::cout << kingside << " while kingside is " << KINGSIDE << std::endl;
+
+            // The castleSq will return NO_SQUARE when castling is not pseudolegal
+            if (to == NO_SQUARE || board.in_check())
+                return false;
+
+            // std::cout << "Castling is pseudolegal and stm is not in check" << std::endl;
+
+            const Rank back_rank = board.stm == WHITE ? RANK_1 : RANK_8;
+
+            const Square king_end_sq(back_rank, kingside ? FILE_G : FILE_C);
+            const Square rook_end_sq(back_rank, kingside ? FILE_F : FILE_D);
+
+            BitBoard between_bb = (line_segment(from, king_end_sq) | line_segment(to, rook_end_sq)) ^ from.as_bb() ^ to.as_bb();
+
+            if (board.pieces() & between_bb)
+                return false;
+
+            // std::cout << "No pieces directly obstruct castling" << std::endl;
+
+            // std::cout << "King starting on " << from.str() << " and ending on " << king_end_sq.str() << std::endl;
+
+            between_bb = line_segment(from, king_end_sq);
+
+            // std::cout << between_bb.str() << std::endl << std::endl;
+            // std::cout << board.attacking(~board.stm).str() << std::endl << std::endl;
+
+            if (between_bb & board.attacking(~board.stm))
+                return false;
+            
+            // std::cout << "No pieces obstruct castling by check" << std::endl;
+
+            return true;
+        };
+
+        if (legalCastle(KINGSIDE))
+            moves.add(king_sq, board.castle_sq(board.stm, KINGSIDE), CASTLE);
+        if (legalCastle(QUEENSIDE))
+            moves.add(king_sq, board.castle_sq(board.stm, QUEENSIDE), CASTLE);
+    }
+
+    MoveList generate_moves(const Board& board) {
+        MoveList moves;
+        king_moves(board, moves);
+        if (board.checkers.popcount() > 1)
+            return moves;
+
+        pawn_moves(board, moves);
+        knight_moves(board, moves);
+        diag_moves(board, moves);
+        ortho_moves(board, moves);
+        // Note: Queen moves are done at the same time as bishop/rook moves
+
+        return moves;
+    }
+    
+    u64 _perft(const Board& board, const usize depth) {
+        if (depth == 0)
+            return 1;
+
+        u64 nodes = 0;
+
+        const MoveList moves = generate_moves(board);
+        
+        for (const Move m : moves) {
+            const Board new_board = board.move(m);
+
+            nodes += _perft(new_board, depth - 1);
+        }
+
+        return nodes;
+    }
+
+    u64 _bulk(const Board& board, const usize depth) {
+        if (depth == 0)
+            return 1;
+        if (depth == 1)
+            return generate_moves(board).size();
+
+        u64 nodes = 0;
+
+        const MoveList moves = generate_moves(board);
+        
+        for (const Move m : moves) {
+            const Board new_board = board.move(m);
+
+            nodes += _bulk(new_board, depth - 1);
+        }
+        
+        return nodes;
+    }
+
+    void perft(const Board& board, const usize depth, const bool use_bulk) {
+        u64 nodes = 0;
+
+        Stopwatch<std::chrono::milliseconds> stopwatch{};
+
+        const MoveList moves = generate_moves(board);
+        
+        for (const Move m : moves) {
+            const Board new_board = board.move(m);
+
+            const u64 nodes_this_move = use_bulk ? _bulk(new_board, depth - 1) : _perft(new_board, depth - 1);
+
+            nodes += nodes_this_move;
+            std::cout << m.str() << ": " << nodes_this_move << std::endl;
+        }
+
+        const u64 elapsed_ms = stopwatch.elapsed();
+        const u64 nps = nodes * 1000 / std::max<u64>(elapsed_ms, 1);
+
+        std::cout << "Total nodes: " << format_num(nodes) << std::endl;
+        std::cout << "Time spent (ms): " << format_num(elapsed_ms) << std::endl;
+        std::cout << "Nodes per second: " << format_num(nps) << std::endl;
+        std::cout << nodes << " nodes " << nps << " nps" << std::endl;
     }
 }

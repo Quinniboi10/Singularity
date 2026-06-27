@@ -26,6 +26,9 @@ namespace chess {
     bool Square::is_none() const {
         return *this == NO_SQUARE;
     }
+    bool Square::is_real() const {
+        return this->sq >= a1.sq && this->sq <= h8.sq;
+    }
 
     File Square::file() const {
         return static_cast<File>(this->sq & 0b111);
@@ -37,6 +40,10 @@ namespace chess {
 
     Square Square::operator+(const Direction& dir) const {
         return Square(this->sq + dir);
+    }
+
+    Square Square::operator-(const Direction& dir) const {
+        return Square(this->sq - dir);
     }
 
     bool Square::operator==(const Square& other) const {

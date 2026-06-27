@@ -1,5 +1,6 @@
 #pragma once
 
+#include <compare>
 #include <string>
 #include <array>
 
@@ -7,6 +8,8 @@
 
 namespace chess {
     struct Square;
+    enum Direction : int;
+    enum Color : int;
 
     class BitBoard {
         u64 data;
@@ -16,13 +19,20 @@ namespace chess {
 
         BitBoard(u64 data = 0);
 
+        static Direction make_relative(Color c, Direction shift);
+        
         BitBoard lshift(usize shift) const;
         BitBoard rshift(usize shift) const;
+        BitBoard shift(Direction shift) const;
+        BitBoard rel_shift(Color c, Direction shift) const;
 
         bool has_data() const;
         bool read_sq(Square idx) const;
 
         Square get_lsb() const;
+        Square pop_lsb();
+
+        int popcount() const;
 
         std::string str() const;
 
@@ -30,6 +40,10 @@ namespace chess {
         void disable(Square sq);
 
         u64 as_u64() const;
+
+        std::strong_ordering operator<=>(const BitBoard& other) const {
+            return this->data <=> other.data;
+        }
 
         BitBoard operator|(const BitBoard& other) const {
             return BitBoard(this->data | other.data);
@@ -54,8 +68,16 @@ namespace chess {
             return BitBoard(this->data * other.data);
         }
 
+        BitBoard& operator|=(const BitBoard& other) {
+            this->data |= other.data;
+            return *this;
+        }
         BitBoard& operator&=(const BitBoard& other) {
             this->data &= other.data;
+            return *this;
+        }
+        BitBoard& operator^=(const BitBoard& other) {
+            this->data ^= other.data;
             return *this;
         }
 

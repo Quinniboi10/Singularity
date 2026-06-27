@@ -1,7 +1,9 @@
 #pragma once
 
+#include "multiarray.h"
 #include "bitboard.h"
 #include "board.h"
+#include "move.h"
 
 namespace chess::movegen {
     // Tables from https://github.com/Disservin/chess-library/blob/cf3bd56474168605201a01eb78b3222b8f9e65e4/include/chess.hpp#L780
@@ -31,4 +33,27 @@ namespace chess::movegen {
     };
 
     void initialize_movegen_databases();
+
+    BitBoard line(Square sq1, Square sq2);
+    BitBoard line_segment(Square sq1, Square sq2);
+
+    BitBoard mask(Rank r);
+    BitBoard mask(File f);
+
+    template<typename... Masks>
+    BitBoard mask(const Masks... masks) {
+        return (mask(masks) | ...);
+    }
+
+    BitBoard get_bishop_attacks(Square sq, BitBoard occ);
+    BitBoard get_rook_attacks(Square sq, BitBoard occ);
+
+    BitBoard get_xray_bishop_attacks(Square square, BitBoard occ, BitBoard blockers);
+    BitBoard get_xray_rook_attacks(Square sq, BitBoard occ, BitBoard blockers);
+
+    BitBoard generate_attacks(Color c, const Board& board);
+
+    MoveList generate_moves(const Board& board);
+
+    void perft(const Board& board, usize depth, bool use_bulk);
 }

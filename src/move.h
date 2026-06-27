@@ -21,6 +21,8 @@ namespace chess {
 
         Move(Square startSquare, Square endSquare, MoveType flags = STANDARD_MOVE);
         Move(Square startSquare, Square endSquare, PieceType promo);
+        
+        Move(const Board& board, const std::string& s);
 
         static Move null();
 
@@ -45,6 +47,8 @@ namespace chess {
         void add(Move m);
         void add(Square startSquare, Square endSquare, MoveType flags = STANDARD_MOVE);
         void add(Square startSquare, Square endSquare, PieceType promo);
+
+        usize size() const;
 
         auto begin() { return moves.begin(); }
         auto end() { return moves.begin() + length; }

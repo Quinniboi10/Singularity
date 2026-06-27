@@ -1,14 +1,18 @@
 #include "board.h"
 
-#include <ostream>
 #include <stdexcept>
+#include <ostream>
 #include <deque>
 #include <tuple>
 
 #include "../external/fmt/fmt/color.h"
 
+#include "bitboard.h"
+#include "movegen.h"
+#include "assert.h"
 #include "square.h"
 #include "utils.h"
+#include "move.h"
 
 namespace chess {
     std::tuple<Color, PieceType> Board::parse_piece_char(char c) {
@@ -64,6 +68,55 @@ namespace chess {
         } while (rook_bb.read_sq(rook_sq) == false);
 
         return std::make_tuple(color, side, rook_sq);
+    }
+
+    void Board::update_check_pin_attack() {
+        attacking_bb[this->stm] = movegen::generate_attacks(this->stm, *this);
+        attacking_bb[~this->stm] = movegen::generate_attacks(~this->stm, *this);
+
+        const BitBoard king_bb = this->pieces(this->stm, KING);
+        const Square king_sq = king_bb.get_lsb();
+
+        const BitBoard friendly = this->pieces(this->stm);
+        const BitBoard enemy_diag = this->pieces(~this->stm, BISHOP, QUEEN);
+        const BitBoard enemy_ortho = this->pieces(~this->stm, ROOK, QUEEN);
+
+        const BitBoard occ = this->pieces();
+
+        // *** SLIDER ATTACKS ***
+        const BitBoard ortho_checks = enemy_ortho & movegen::get_rook_attacks(king_sq, occ.as_u64());
+        const BitBoard diag_checks = enemy_diag & movegen::get_bishop_attacks(king_sq, occ.as_u64());
+
+        BitBoard slider_checks = ortho_checks | diag_checks;
+
+        // *** KNIGHT ATTACKS ***
+        const BitBoard knight_checks = pieces(~stm, KNIGHT) & movegen::KNIGHT_ATTACKS[king_sq.sq];
+
+        // *** PAWN ATTACKS ***
+        const Direction pawn_push_dir = this->stm == WHITE ? NORTH : SOUTH;
+        const BitBoard pawn_checks = ((king_bb & ~movegen::mask(FILE_H)).shift(pawn_push_dir + EAST) |
+                                        (king_bb & ~movegen::mask(FILE_A)).shift(pawn_push_dir + WEST)) &
+                                        this->pieces(~this->stm, PAWN);
+        
+        this->checkers = knight_checks | slider_checks | knight_checks | pawn_checks;
+        this->check_mask = knight_checks | pawn_checks;
+
+        while(slider_checks)
+            this->check_mask |= movegen::line_segment(king_sq, slider_checks.pop_lsb());
+
+        if (this->check_mask.as_u64() == 0)
+            this->check_mask = -1;
+
+        // *** PINNED PIECE LOGIC ***
+        const BitBoard ortho_xrays = movegen::get_xray_rook_attacks(king_sq, occ, friendly) & enemy_ortho;
+        const BitBoard diag_xrays = movegen::get_xray_bishop_attacks(king_sq, occ, friendly) & enemy_diag;
+
+        BitBoard pinners = ortho_xrays | diag_xrays;
+        this->pinner_bb[this->stm] = pinners;
+
+        this->pinned = 0;
+        while (pinners > 0)
+            this->pinned |= movegen::line_segment(pinners.pop_lsb(), king_sq) & friendly;
     }
 
     int castle_idx(const Color c, const CastlingSide side) {
@@ -160,6 +213,16 @@ namespace chess {
             this->ep_square = NO_SQUARE;
         else
             this->ep_square = Square(tokens[3]);
+
+        this->update_check_pin_attack();
+    }
+
+    Square Board::rel_sq_shift(Square sq, Direction dir) const {
+        return sq + this->rel_shift_dir(dir);
+    }
+
+    Direction Board::rel_shift_dir(Direction dir) const {
+        return BitBoard::make_relative(this->stm, dir);
     }
 
     BitBoard Board::pieces() const {
@@ -168,6 +231,18 @@ namespace chess {
 
     BitBoard Board::pieces(const Color c) const {
         return this->color_bb[c];
+    }
+
+    BitBoard Board::attacking(const Color c) const {
+        return this->attacking_bb[c];
+    }
+
+    bool Board::in_check() const {
+        return this->checkers > 0;
+    }
+
+    bool Board::is_capture(const Move m) const {
+        return this->pieces(~this->stm).read_sq(m.to()) || m.type() == EN_PASSANT;
     }
 
     bool Board::can_castle(const Color c, const CastlingSide side) const {
@@ -185,6 +260,73 @@ namespace chess {
 
     Square Board::castle_sq(const Color c, const CastlingSide side) const {
         return this->castling_rights[castle_idx(c, side)];
+    }
+
+    Board Board::move(const Move m) const {
+        Board b = *this;
+
+        b.ep_square = NO_SQUARE;
+
+        const Square from = m.from();
+        const Square to = m.to();
+
+        const MoveType mt = m.type();
+        const PieceType pt = this->read_sq(from);
+
+        const PieceType to_pt = is_capture(m) ? this->read_sq(to) : NO_PIECE_TYPE;
+
+        b.clear_sq(from, this->stm, pt);
+
+        if (to_pt != NO_PIECE_TYPE)
+            b.clear_sq(to, ~this->stm, to_pt);
+
+        if (mt == STANDARD_MOVE) {
+            b.set_sq(to, this->stm, pt);
+
+            // Only set the EP square if it could be taken
+            if (pt == PAWN &&
+                (to + NORTH_NORTH == from || to + SOUTH_SOUTH == from) &&
+                (pieces(~stm, PAWN) & ((to.as_bb() & ~movegen::mask(FILE_H)).shift(EAST) | (to.as_bb() & ~movegen::mask(FILE_A)).shift(WEST))))
+                b.ep_square = stm == WHITE ? from + NORTH : from + SOUTH;
+        }
+        else if (mt == EN_PASSANT) {
+            b.clear_sq(to + (stm == WHITE ? SOUTH : NORTH), ~this->stm, PAWN);
+            b.set_sq(to, this->stm, pt);
+        }
+        else if (mt == CASTLE) {
+            traced_assert(this->read_sq(to) == ROOK);
+            b.clear_sq(to, this->stm, ROOK);
+
+            const Rank rank = this->stm == WHITE ? RANK_1 : RANK_8;
+            const File king_file = from.sq < to.sq ? FILE_G : FILE_C;
+            const File rook_file = from.sq < to.sq ? FILE_F : FILE_D;
+
+            b.set_sq(Square(rank, king_file), this->stm, KING);
+            b.set_sq(Square(rank, rook_file), this->stm, ROOK);
+        }
+        else if (mt == PROMOTION) {
+            b.set_sq(to, this->stm, m.promo());
+        }
+
+        if (pt == ROOK) {
+            const CastlingSide side = from.sq > pieces(stm, KING).get_lsb().sq ? KINGSIDE : QUEENSIDE;
+            const Square sq = this->castle_sq(stm, side);
+            if (from == sq)
+                b.revoke_castle(this->stm, side);
+        }
+        else if (pt == KING)
+            b.revoke_castle(this->stm);
+        if (to_pt == ROOK) {
+            const CastlingSide side = to.sq > pieces(~stm, KING).get_lsb().sq ? KINGSIDE : QUEENSIDE;
+            const Square sq = this->castle_sq(~stm, side);
+            if (to == sq)
+                b.revoke_castle(~this->stm, side);
+        }
+
+        b.stm = ~this->stm;
+        b.update_check_pin_attack();
+
+        return b;
     }
 
     std::string Board::fen() const {
@@ -249,6 +391,22 @@ namespace chess {
                 return "FEN: " + board.fen();
             if (line == 2)
                 return "En passant: " + (board.ep_square.is_none() ? "-" : board.ep_square.str());
+            if (line == 3) {
+                std::string s = "";
+                if (board.can_castle(WHITE, KINGSIDE))
+                    s += "K";
+                if (board.can_castle(WHITE, QUEENSIDE))
+                    s += "Q";
+                if (board.can_castle(BLACK, KINGSIDE))
+                    s += "k";
+                if (board.can_castle(BLACK, QUEENSIDE))
+                    s += "q";
+                return "Castling rights: " + (s.empty() ? "-" : s);
+            }
+            if (line == 4)
+                return std::to_string(board.checkers.popcount()) + " checkers";
+            if (line == 5)
+                return std::to_string(board.pinned.popcount()) + " pinned pieces";
             return "";
         };
 

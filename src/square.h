@@ -26,11 +26,13 @@ namespace chess {
         std::string str() const;
 
         bool is_none() const;
+        bool is_real() const;
 
         File file() const;
         Rank rank() const;
 
         Square operator+(const Direction& dir) const;
+        Square operator-(const Direction& dir) const;
         bool operator==(const Square& other) const;
 
         Square& operator+=(const Direction& dir);
