@@ -8,8 +8,8 @@
 
 namespace chess {
     struct Square;
-    enum Direction : int;
-    enum Color : int;
+    enum Direction : i8;
+    enum Color : bool;
 
     class BitBoard {
         u64 data;

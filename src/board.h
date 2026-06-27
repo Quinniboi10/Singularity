@@ -7,7 +7,7 @@
 #include "square.h"
 
 namespace chess {
-    enum Color : int {
+    enum Color : bool {
         BLACK,
         WHITE
     };
@@ -29,7 +29,7 @@ namespace chess {
         KINGSIDE
     };
 
-    enum Direction : int {
+    enum Direction : i8 {
         NORTH = 8,
         NORTH_NORTH = 16,
         NORTH_EAST = 9,
