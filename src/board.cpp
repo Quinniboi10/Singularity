@@ -70,6 +70,12 @@ namespace chess {
         return std::make_tuple(color, side, rook_sq);
     }
 
+    void Board::reset_mailbox() {
+        for (int i = 0; i < 64; i++) {
+            this->mailbox[i] = NO_PIECE_TYPE;
+        }
+    }
+
     void Board::update_check_pin_attack() {
         attacking_bb[this->stm] = movegen::generate_attacks(this->stm, *this);
         attacking_bb[~this->stm] = movegen::generate_attacks(~this->stm, *this);
@@ -126,18 +132,19 @@ namespace chess {
     void Board::clear_sq(const Square sq, const Color c, const PieceType pt) {
         this->piece_bb[pt].disable(sq);
         this->color_bb[c].disable(sq);
+
+        this->mailbox[sq.sq] = NO_PIECE_TYPE;
     }
 
     void Board::set_sq(const Square sq, const Color c, const PieceType pt) {
         this->piece_bb[pt].enable(sq);
         this->color_bb[c].enable(sq);
+
+        this->mailbox[sq.sq] = pt;
     }
 
     PieceType Board::read_sq(const Square sq) const {
-        for (const PieceType pt : {PAWN, KNIGHT, BISHOP, ROOK, QUEEN, KING})
-            if (this->pieces(pt).read_sq(sq))
-                return pt;
-        return NO_PIECE_TYPE;
+        return this->mailbox[sq.sq];
     }
 
     Color Board::read_sq_color(const Square sq) const {
@@ -166,6 +173,9 @@ namespace chess {
     }
 
     Board::Board(const std::string& fen) {
+        // Clear mailbox
+        this->reset_mailbox();
+
         std::vector<std::string> tokens = split(fen, ' ');
 
         // Position parsing

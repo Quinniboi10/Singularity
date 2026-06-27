@@ -62,6 +62,8 @@ namespace chess {
 
         std::array<Square, 4> castling_rights;
 
+        std::array<PieceType, 64> mailbox;
+
         void clear_sq(Square sq, Color c, PieceType pt);
         void set_sq(Square sq, Color c, PieceType pt);
 
@@ -70,6 +72,7 @@ namespace chess {
         static std::tuple<Color, PieceType> parse_piece_char(char c);
         std::tuple<Color, CastlingSide, Square> parse_castling_char(char c) const;
 
+        void reset_mailbox();
         void update_check_pin_attack();
 
       public:
