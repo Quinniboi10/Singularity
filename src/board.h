@@ -59,7 +59,6 @@ namespace chess {
         std::array<BitBoard, 6> piece_bb;
         std::array<BitBoard, 2> color_bb;
 
-        std::array<BitBoard, 2> attacking_bb;
         std::array<BitBoard, 2> pinner_bb;
 
         std::array<Square, 4> castling_rights;
@@ -85,6 +84,7 @@ namespace chess {
         BitBoard checkers;
         BitBoard pinned;
         BitBoard check_mask;
+        BitBoard attacked_bb;
 
         Board(const std::string& fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
 
@@ -110,8 +110,6 @@ namespace chess {
 
         BitBoard pieces() const;
         BitBoard pieces(Color c) const;
-
-        BitBoard attacking(Color c) const;
 
         bool in_check() const;
 

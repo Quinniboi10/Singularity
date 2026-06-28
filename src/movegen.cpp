@@ -346,10 +346,12 @@ namespace chess::movegen {
         BitBoard pinned_bb   = piece_bb & board.pinned;
         BitBoard free_bb     = piece_bb ^ pinned_bb;
 
+        const BitBoard non_friendly = ~board.pieces(board.stm);
+
         while (free_bb) {
             const Square from = free_bb.pop_lsb();
 
-            const BitBoard to_bb = movegenFunction(from) & ~board.pieces(board.stm) & board.check_mask;
+            const BitBoard to_bb = movegenFunction(from) & non_friendly & board.check_mask;
 
             deserialize_normal(moves, from, to_bb);
         }
@@ -357,7 +359,7 @@ namespace chess::movegen {
         while (pinned_bb) {
             const Square from = pinned_bb.pop_lsb();
 
-            const BitBoard to_bb = movegenFunction(from) & ~board.pieces(board.stm) & board.check_mask & line(king_sq, from);
+            const BitBoard to_bb = movegenFunction(from) & non_friendly & board.check_mask & line(king_sq, from);
 
             deserialize_normal(moves, from, to_bb);
         }
@@ -425,7 +427,7 @@ namespace chess::movegen {
                 const Move m(from, board.ep_square, EN_PASSANT);
                 const Board new_board = board.move(m);
 
-                if (!new_board.attacking(new_board.stm).read_sq(king_sq))
+                if (!movegen::generate_attacks(new_board.stm, new_board).read_sq(king_sq))
                     moves.add(m);
             }
         }
@@ -454,7 +456,7 @@ namespace chess::movegen {
         traced_assert(king_sq.is_real());
 
         BitBoard king_moves = KING_ATTACKS[king_sq.sq];
-        king_moves &= ~board.pieces(board.stm) & ~board.attacking(~board.stm);
+        king_moves &= ~board.pieces(board.stm) & ~board.attacked_bb;
 
         BitBoard checkers = board.checkers;
 
@@ -488,7 +490,7 @@ namespace chess::movegen {
 
             between_bb = line_segment(from, king_end_sq);
 
-            if (between_bb & board.attacking(~board.stm))
+            if (between_bb & board.attacked_bb)
                 return false;
 
             return true;

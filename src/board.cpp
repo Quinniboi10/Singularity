@@ -77,8 +77,7 @@ namespace chess {
     }
 
     void Board::update_check_pin_attack() {
-        attacking_bb[this->stm]  = movegen::generate_attacks(this->stm, *this);
-        attacking_bb[~this->stm] = movegen::generate_attacks(~this->stm, *this);
+        attacked_bb = movegen::generate_attacks(~this->stm, *this);
 
         const BitBoard king_bb = this->pieces(this->stm, KING);
         const Square king_sq   = king_bb.get_lsb();
@@ -233,10 +232,6 @@ namespace chess {
         return this->color_bb[c];
     }
 
-    BitBoard Board::attacking(const Color c) const {
-        return this->attacking_bb[c];
-    }
-
     bool Board::in_check() const {
         return this->checkers > 0;
     }
@@ -273,7 +268,7 @@ namespace chess {
         const MoveType mt  = m.type();
         const PieceType pt = this->read_sq(from);
 
-        const PieceType to_pt = is_capture(m) ? this->read_sq(to) : NO_PIECE_TYPE;
+        const PieceType to_pt = this->read_sq(to);
 
         b.clear_sq(from, this->stm, pt);
 
@@ -288,12 +283,11 @@ namespace chess {
                 && (pieces(~stm, PAWN) & ((to.as_bb() & ~movegen::mask(FILE_H)).shift(EAST) | (to.as_bb() & ~movegen::mask(FILE_A)).shift(WEST))))
                 b.ep_square = stm == WHITE ? from + NORTH : from + SOUTH;
         }
-        else if (mt == EN_PASSANT) {
-            b.clear_sq(to + (stm == WHITE ? SOUTH : NORTH), ~this->stm, PAWN);
-            b.set_sq(to, this->stm, pt);
+        else if (mt == PROMOTION) {
+            b.set_sq(to, this->stm, m.promo());
         }
         else if (mt == CASTLE) {
-            traced_assert(this->read_sq(to) == ROOK);
+            traced_assert(to_pt == ROOK);
             b.clear_sq(to, this->stm, ROOK);
 
             const Rank rank      = this->stm == WHITE ? RANK_1 : RANK_8;
@@ -303,8 +297,9 @@ namespace chess {
             b.set_sq(Square(rank, king_file), this->stm, KING);
             b.set_sq(Square(rank, rook_file), this->stm, ROOK);
         }
-        else if (mt == PROMOTION) {
-            b.set_sq(to, this->stm, m.promo());
+        else if (mt == EN_PASSANT) {
+            b.clear_sq(to + (stm == WHITE ? SOUTH : NORTH), ~this->stm, PAWN);
+            b.set_sq(to, this->stm, pt);
         }
 
         if (pt == ROOK) {
