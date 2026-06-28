@@ -87,9 +87,6 @@ namespace chess {
 
         Board(const std::string& fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
 
-        Square rel_sq_shift(Square sq, Direction dir) const;
-        Direction rel_shift_dir(Direction dir) const;
-
         template<PieceType pt>
         bool has_piece(const Square sq) const {
             return this->pieces(pt).read_sq(sq);

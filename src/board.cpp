@@ -227,14 +227,6 @@ namespace chess {
         this->update_check_pin_attack();
     }
 
-    Square Board::rel_sq_shift(Square sq, Direction dir) const {
-        return sq + this->rel_shift_dir(dir);
-    }
-
-    Direction Board::rel_shift_dir(Direction dir) const {
-        return BitBoard::make_relative(this->stm, dir);
-    }
-
     BitBoard Board::pieces() const {
         return this->pieces(WHITE) | this->pieces(BLACK);
     }

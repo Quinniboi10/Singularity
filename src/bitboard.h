@@ -24,7 +24,6 @@ namespace chess {
         BitBoard lshift(usize shift) const;
         BitBoard rshift(usize shift) const;
         BitBoard shift(Direction shift) const;
-        BitBoard rel_shift(Color c, Direction shift) const;
 
         bool has_data() const;
         bool read_sq(Square idx) const;

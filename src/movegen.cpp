@@ -358,7 +358,7 @@ namespace chess::movegen {
         const BitBoard empty = ~board.pieces();
         const BitBoard enemy = board.pieces(~stm);
 
-        const Direction push_dir = board.rel_shift_dir(NORTH);
+        const Direction push_dir = board.stm == WHITE ? NORTH : SOUTH;
 
         const Square king_sq = board.pieces(stm, KING).get_lsb();
 

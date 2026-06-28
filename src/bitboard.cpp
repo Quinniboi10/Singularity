@@ -67,9 +67,6 @@ namespace chess {
         else
             return this->rshift(-shift);
     }
-    BitBoard BitBoard::rel_shift(const Color c, const Direction shift) const {
-        return this->shift(BitBoard::make_relative(c, shift));
-    }
 
     bool BitBoard::has_data() const {
         return this->data != 0;
