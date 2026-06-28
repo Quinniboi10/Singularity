@@ -19,7 +19,7 @@ namespace chess {
     Move::Move(const Board& board, const std::string& s) {
         const Square from(s.substr(0, 2));
         Square to(s.substr(2, 2));
-    
+
         MoveType flag = STANDARD_MOVE;
 
         // Move must be promotion
@@ -41,13 +41,13 @@ namespace chess {
         }
 
         // Castling
-        if ((from == e1 && to == g1 && board.can_castle(WHITE, KINGSIDE)) || (from == e1 && to == c1 && board.can_castle(WHITE, QUEENSIDE)) ||
-            (from == e8 && to == g8 && board.can_castle(BLACK, KINGSIDE)) || (from == e8 && to == c8 && board.can_castle(BLACK, QUEENSIDE))) {
-            to = board.castle_sq(board.stm, to.sq > from.sq ? KINGSIDE : QUEENSIDE);
+        if ((from == e1 && to == g1 && board.can_castle(WHITE, KINGSIDE)) || (from == e1 && to == c1 && board.can_castle(WHITE, QUEENSIDE))
+            || (from == e8 && to == g8 && board.can_castle(BLACK, KINGSIDE)) || (from == e8 && to == c8 && board.can_castle(BLACK, QUEENSIDE))) {
+            to    = board.castle_sq(board.stm, to.sq > from.sq ? KINGSIDE : QUEENSIDE);
             *this = Move(from, to, CASTLE);
             return;
         }
-        
+
         if (to == board.ep_square && board.pieces(board.stm, PAWN).read_sq(from))
             flag = EN_PASSANT;
 
@@ -67,9 +67,9 @@ namespace chess {
     }
 
     PieceType Move::promo() const {
-            traced_assert(this->type() == PROMOTION);
-            return PieceType(((move >> 12) & 0b11) + 1);
-        }
+        traced_assert(this->type() == PROMOTION);
+        return PieceType(((move >> 12) & 0b11) + 1);
+    }
 
     MoveType Move::type() const {
         return static_cast<MoveType>(this->move & 0xC000);
@@ -79,7 +79,7 @@ namespace chess {
         const MoveType mt = this->type();
 
         const Square from = this->from();
-        const Square to = this->to();
+        const Square to   = this->to();
 
         if (mt == STANDARD_MOVE || mt == EN_PASSANT)
             return from.str() + to.str();

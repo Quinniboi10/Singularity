@@ -11,9 +11,9 @@
 using namespace chess;
 
 int main() {
-    #ifdef _WIN32
-        SetConsoleOutputCP(CP_UTF8);
-    #endif
+#ifdef _WIN32
+    SetConsoleOutputCP(CP_UTF8);
+#endif
 
     std::cout << "Building movegen databases\r" << std::flush;
 
@@ -57,12 +57,12 @@ int main() {
                     board = board.move(Move(board, tokens[i]));
             }
         }
-        
+
         if (tokens[0] == "perft")
             movegen::perft(board, std::stoi(tokens[1]), false);
         if (tokens[0] == "bulk")
             movegen::perft(board, std::stoi(tokens[1]), true);
-        
+
         if (command == "quit" || command == "exit")
             return 0;
     }

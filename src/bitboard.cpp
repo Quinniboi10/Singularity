@@ -26,7 +26,7 @@ namespace chess {
                 return WEST;
             case NORTH_WEST:
                 return SOUTH_WEST;
-            
+
             case NORTH_NORTH:
                 return SOUTH_SOUTH;
             case EAST_EAST:
@@ -87,7 +87,7 @@ namespace chess {
         return sq;
     }
 
-    int BitBoard::popcount() const{
+    int BitBoard::popcount() const {
         return std::popcount(this->data);
     }
 

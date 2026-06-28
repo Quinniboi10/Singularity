@@ -14,13 +14,13 @@ namespace chess {
     class BitBoard {
         u64 data;
 
-        public:
+       public:
         static BitBoard all();
 
         BitBoard(u64 data = 0);
 
         static Direction make_relative(Color c, Direction shift);
-        
+
         BitBoard lshift(usize shift) const;
         BitBoard rshift(usize shift) const;
         BitBoard shift(Direction shift) const;
@@ -56,7 +56,7 @@ namespace chess {
         BitBoard operator~() const {
             return BitBoard(~this->data);
         }
-        
+
         BitBoard operator+(const BitBoard& other) const {
             return BitBoard(this->data + other.data);
         }

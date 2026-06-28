@@ -49,7 +49,7 @@ namespace chess {
     bool Square::operator==(const Square& other) const {
         return this->sq == other.sq;
     }
-    
+
     Square& Square::operator+=(const Direction& dir) {
         this->sq += dir;
         return *this;

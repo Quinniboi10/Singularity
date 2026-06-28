@@ -12,7 +12,9 @@ namespace chess {
         WHITE
     };
 
-    inline Color operator~(const Color& other) { return static_cast<Color>(other ^ 1); }
+    inline Color operator~(const Color& other) {
+        return static_cast<Color>(other ^ 1);
+    }
 
     enum PieceType {
         PAWN,
@@ -30,18 +32,18 @@ namespace chess {
     };
 
     enum Direction : i8 {
-        NORTH = 8,
+        NORTH       = 8,
         NORTH_NORTH = 16,
-        NORTH_EAST = 9,
-        EAST = 1,
-        EAST_EAST = 2,
-        SOUTH_EAST = -7,
-        SOUTH = -8,
+        NORTH_EAST  = 9,
+        EAST        = 1,
+        EAST_EAST   = 2,
+        SOUTH_EAST  = -7,
+        SOUTH       = -8,
         SOUTH_SOUTH = -16,
-        SOUTH_WEST = -9,
-        WEST = -1,
-        WEST_WEST = -2,
-        NORTH_WEST = 7
+        SOUTH_WEST  = -9,
+        WEST        = -1,
+        WEST_WEST   = -2,
+        NORTH_WEST  = 7
     };
 
     inline Direction operator+(const Direction& lhs, const Direction& rhs) {
@@ -75,12 +77,11 @@ namespace chess {
         void reset_mailbox();
         void update_check_pin_attack();
 
-      public:
-      
+       public:
         Color stm;
 
         Square ep_square;
-        
+
         BitBoard checkers;
         BitBoard pinned;
         BitBoard check_mask;
@@ -115,7 +116,7 @@ namespace chess {
         bool in_check() const;
 
         bool is_capture(Move m) const;
-        
+
         Color read_sq_color(const Square sq) const;
         PieceType read_sq(Square sq) const;
 

@@ -9,19 +9,22 @@
 
 namespace chess {
     enum MoveType {
-        STANDARD_MOVE = 0, EN_PASSANT = 0x4000, CASTLE = 0x8000, PROMOTION = 0xC000
+        STANDARD_MOVE = 0,
+        EN_PASSANT    = 0x4000,
+        CASTLE        = 0x8000,
+        PROMOTION     = 0xC000
     };
-    
+
     class Move {
         u16 move;
 
-        public:
-        constexpr Move() = default;
+       public:
+        constexpr Move()  = default;
         constexpr ~Move() = default;
 
         Move(Square startSquare, Square endSquare, MoveType flags = STANDARD_MOVE);
         Move(Square startSquare, Square endSquare, PieceType promo);
-        
+
         Move(const Board& board, const std::string& s);
 
         static Move null();
@@ -40,8 +43,8 @@ namespace chess {
         std::array<Move, 256> moves;
         usize length = 0;
 
-        public:
-        constexpr MoveList() = default;
+       public:
+        constexpr MoveList()  = default;
         constexpr ~MoveList() = default;
 
         void add(Move m);
@@ -50,9 +53,17 @@ namespace chess {
 
         usize size() const;
 
-        auto begin() { return moves.begin(); }
-        auto end() { return moves.begin() + length; }
-        auto begin() const { return moves.begin(); }
-        auto end() const { return moves.begin() + length; }
+        auto begin() {
+            return moves.begin();
+        }
+        auto end() {
+            return moves.begin() + length;
+        }
+        auto begin() const {
+            return moves.begin();
+        }
+        auto end() const {
+            return moves.begin() + length;
+        }
     };
 }

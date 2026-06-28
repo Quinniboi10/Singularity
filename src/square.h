@@ -9,18 +9,36 @@ namespace chess {
     enum Direction : i8;
 
     enum File {
-        FILE_A, FILE_B, FILE_C, FILE_D, FILE_E, FILE_F, FILE_G, FILE_H
+        FILE_A,
+        FILE_B,
+        FILE_C,
+        FILE_D,
+        FILE_E,
+        FILE_F,
+        FILE_G,
+        FILE_H
     };
     enum Rank {
-        RANK_1, RANK_2, RANK_3, RANK_4, RANK_5, RANK_6, RANK_7, RANK_8
+        RANK_1,
+        RANK_2,
+        RANK_3,
+        RANK_4,
+        RANK_5,
+        RANK_6,
+        RANK_7,
+        RANK_8
     };
 
     struct Square {
         i8 sq;
 
-        constexpr Square() : sq(-1) {}
+        constexpr Square() :
+            sq(-1) {
+        }
         Square(const std::string& sq);
-        constexpr explicit Square(int sq) : sq(sq) {}
+        constexpr explicit Square(int sq) :
+            sq(sq) {
+        }
         Square(Rank rank, File file);
 
         BitBoard as_bb() const;
