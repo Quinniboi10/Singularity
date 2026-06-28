@@ -455,8 +455,10 @@ namespace chess::movegen {
 
         traced_assert(king_sq.is_real());
 
+        const BitBoard attacked_bb = generate_attacks(~board.stm, board);
+
         BitBoard king_moves = KING_ATTACKS[king_sq.sq];
-        king_moves &= ~board.pieces(board.stm) & ~board.attacked_bb;
+        king_moves &= ~board.pieces(board.stm) & ~attacked_bb;
 
         BitBoard checkers = board.checkers;
 
@@ -490,7 +492,7 @@ namespace chess::movegen {
 
             between_bb = line_segment(from, king_end_sq);
 
-            if (between_bb & board.attacked_bb)
+            if (between_bb & attacked_bb)
                 return false;
 
             return true;

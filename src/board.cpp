@@ -77,8 +77,6 @@ namespace chess {
     }
 
     void Board::update_check_pin_attack() {
-        attacked_bb = movegen::generate_attacks(~this->stm, *this);
-
         const BitBoard king_bb = this->pieces(this->stm, KING);
         const Square king_sq   = king_bb.get_lsb();
 
