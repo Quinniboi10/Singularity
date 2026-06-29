@@ -42,10 +42,6 @@ namespace chess {
         return BitBoard(static_cast<u64>(-1));
     }
 
-    BitBoard::BitBoard(const u64 data) {
-        this->data = data;
-    }
-
     Direction BitBoard::make_relative(Color c, Direction shift) {
         if (c == WHITE)
             return shift;

@@ -17,7 +17,7 @@ namespace chess {
        public:
         static BitBoard all();
 
-        BitBoard(u64 data = 0);
+        constexpr BitBoard(u64 data = 0) : data(data) {};
 
         static Direction make_relative(Color c, Direction shift);
 

@@ -329,14 +329,13 @@ namespace chess::movegen {
         return pawn_attacks(c, b) | knight_attacks(c, b) | diagonal_attacks(c, b) | ortho_attacks(c, b) | king_attacks(c, b);
     }
 
-    void deserialize_normal(MoveList& moves, const Square from, BitBoard toBB) {
-        while (toBB)
-            moves.add(from, toBB.pop_lsb());
+    void deserialize_normal(MoveList& moves, const Square from, BitBoard to_bb) {
+        while (to_bb)
+            moves.add(from, to_bb.pop_lsb());
     }
 
-    // Non-king moves and non-EP moves
     template<PieceType pt>
-    void generate_standard(const Board& board, MoveList& moves, const auto& movegenFunction) {
+    void generate_slider(const Board& board, MoveList& moves, const auto& movegen_function) {
         BitBoard piece_bb = board.pieces(board.stm, pt);
 
         if constexpr (pt == BISHOP || pt == ROOK)
@@ -351,7 +350,7 @@ namespace chess::movegen {
         while (free_bb) {
             const Square from = free_bb.pop_lsb();
 
-            const BitBoard to_bb = movegenFunction(from) & non_friendly & board.check_mask;
+            const BitBoard to_bb = movegen_function(from) & non_friendly & board.check_mask;
 
             deserialize_normal(moves, from, to_bb);
         }
@@ -359,7 +358,7 @@ namespace chess::movegen {
         while (pinned_bb) {
             const Square from = pinned_bb.pop_lsb();
 
-            const BitBoard to_bb = movegenFunction(from) & non_friendly & board.check_mask & line(king_sq, from);
+            const BitBoard to_bb = movegen_function(from) & non_friendly & board.check_mask & line(king_sq, from);
 
             deserialize_normal(moves, from, to_bb);
         }
@@ -434,20 +433,27 @@ namespace chess::movegen {
     }
 
     void knight_moves(const Board& board, MoveList& moves) {
-        const auto get_moves = [](Square from) -> BitBoard { return KNIGHT_ATTACKS[from.sq]; };
-        generate_standard<KNIGHT>(board, moves, get_moves);
+        const BitBoard friendly = board.pieces(board.stm);
+
+        // Knights cannot move while pinned
+        BitBoard knights = board.pieces(board.stm, KNIGHT) & ~board.pinned;
+
+        while (knights) {
+            const Square from = knights.pop_lsb();
+            deserialize_normal(moves, from, KNIGHT_ATTACKS[from.sq] & ~friendly);
+        }
     }
 
     void diag_moves(const Board& board, MoveList& moves) {
-        const BitBoard occ   = board.pieces();
+        const BitBoard occ = board.pieces();
         const auto get_moves = [occ](Square from) -> BitBoard { return get_bishop_attacks(from, occ.as_u64()); };
-        generate_standard<BISHOP>(board, moves, get_moves);
+        generate_slider<BISHOP>(board, moves, get_moves);
     }
 
     void ortho_moves(const Board& board, MoveList& moves) {
         const BitBoard occ   = board.pieces();
         const auto get_moves = [occ](Square from) -> BitBoard { return get_rook_attacks(from, occ.as_u64()); };
-        generate_standard<ROOK>(board, moves, get_moves);
+        generate_slider<ROOK>(board, moves, get_moves);
     }
 
     void king_moves(const Board& board, MoveList& moves) {
