@@ -19,7 +19,11 @@ int main() {
 
     movegen::initialize_movegen_databases();
 
-    std::cout << "Databases initialized.     " << std::endl;
+    std::cout << "Databases initialized.    " << std::endl;
+
+    #ifdef ENABLE_TESTS
+    std::cerr << "WARNING: This is a special build with tests features enabled. This means some features may run slower than expected." << std::endl;
+    #endif
 
     std::string command;
     Board board;

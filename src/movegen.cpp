@@ -520,6 +520,18 @@ namespace chess::movegen {
     }
 
     u64 _perft(const Board& board, const usize depth) {
+        #ifdef ENABLE_TESTS
+        {
+            Board new_board = board;
+            new_board.recompute_hash();
+            if (board.hash != new_board.hash) {
+                std::cerr << "HASH CHECKS FAILED" << std::endl;
+                std::cerr << board << std::endl;
+                std::exit(1);
+            }
+        }
+        #endif
+        
         if (depth == 0)
             return 1;
 

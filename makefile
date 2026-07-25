@@ -83,6 +83,11 @@ debug: all
 profile: CXXFLAGS = -O3 -g -fno-finite-math-only -funroll-loops -flto -std=c++23 -fno-omit-frame-pointer -DNDEBUG
 profile: all
 
+# Debug build
+.PHONY: tests
+tests: CXXFLAGS = -O3 -g -fno-finite-math-only -funroll-loops -flto -std=c++23 -fno-omit-frame-pointer -DNDEBUG -DENABLE_TESTS
+tests: all
+
 # Force rebuild
 .PHONY: force
 force: clean

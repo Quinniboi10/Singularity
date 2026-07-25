@@ -16,6 +16,8 @@ namespace chess {
         return static_cast<Color>(other ^ 1);
     }
 
+    constexpr std::array COLORS = { WHITE, BLACK };
+
     enum PieceType {
         PAWN,
         KNIGHT,
@@ -25,6 +27,8 @@ namespace chess {
         KING,
         NO_PIECE_TYPE
     };
+    
+    constexpr std::array PIECE_TYPES = { PAWN, KNIGHT, BISHOP, ROOK, QUEEN, KING };
 
     enum CastlingSide {
         QUEENSIDE,
@@ -68,12 +72,17 @@ namespace chess {
         void clear_sq(Square sq, Color c, PieceType pt);
         void set_sq(Square sq, Color c, PieceType pt);
 
+        void update_hash(Square sq, Color c, PieceType pt);
+
+        u64 hash_castling() const;
+        u64 hash_ep() const;
+
         char read_sq_char(Square sq) const;
 
         static std::tuple<Color, PieceType> parse_piece_char(char c);
         std::tuple<Color, CastlingSide, Square> parse_castling_char(char c) const;
 
-        void reset_mailbox();
+        void clear_mailbox();
         void update_check_pin_attack();
 
        public:
@@ -84,6 +93,8 @@ namespace chess {
         BitBoard checkers;
         BitBoard pinned;
         BitBoard check_mask;
+
+        u64 hash;
 
         Board(const std::string& fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
 
@@ -109,6 +120,8 @@ namespace chess {
 
         BitBoard pieces() const;
         BitBoard pieces(Color c) const;
+
+        void recompute_hash();
 
         bool in_check() const;
 

@@ -2,8 +2,10 @@
 
 #include <stdexcept>
 #include <ostream>
+#include <random>
 #include <deque>
 #include <tuple>
+#include <ios>
 
 #include "../external/fmt/fmt/color.h"
 
@@ -15,6 +17,38 @@
 #include "move.h"
 
 namespace chess {
+    namespace {
+        const auto [PIECE_ZTABLE, EP_ZTABLE, STM_ZHASH, CASTLING_ZTABLE] = []() {
+            // Initialize the generator
+            std::mt19937_64 engine(69420);
+
+            MultiArray<u64, 2, 6, 64> piece_table;
+            std::array<u64, 65> ep_table;
+            std::array<u64, 16> castling_table;
+
+            // Fill piece table
+            for (auto& stm : piece_table)
+                for (auto& pt : stm)
+                    for (u64& piece : pt)
+                        piece = engine();
+
+            // Fill EP table
+            for (u64& ep : ep_table)
+                ep = engine();
+
+            ep_table[NO_SQUARE.sq] = 0;
+
+            // Fill STM hash
+            u64 stm_hash = engine();
+
+            // Fill castling table
+            for (u64& right : castling_table)
+                right = engine();
+
+            return std::make_tuple(piece_table, ep_table, stm_hash, castling_table);
+        }();
+    }
+
     std::tuple<Color, PieceType> Board::parse_piece_char(char c) {
         const bool is_upper = c >= 'A' && c <= 'Z';
         // Convert to lowercase
@@ -70,7 +104,7 @@ namespace chess {
         return std::make_tuple(color, side, rook_sq);
     }
 
-    void Board::reset_mailbox() {
+    void Board::clear_mailbox() {
         for (int i = 0; i < 64; i++) {
             this->mailbox[i] = NO_PIECE_TYPE;
         }
@@ -129,6 +163,8 @@ namespace chess {
         this->color_bb[c].disable(sq);
 
         this->mailbox[sq.sq] = NO_PIECE_TYPE;
+
+        update_hash(sq, c, pt);
     }
 
     void Board::set_sq(const Square sq, const Color c, const PieceType pt) {
@@ -136,6 +172,36 @@ namespace chess {
         this->color_bb[c].enable(sq);
 
         this->mailbox[sq.sq] = pt;
+
+        update_hash(sq, c, pt);
+    }
+
+    void Board::update_hash(Square sq, Color c, PieceType pt) {
+        this->hash ^= PIECE_ZTABLE[c][pt][sq.sq];
+    }
+
+    u64 Board::hash_castling() const {
+        constexpr usize whiteK = 0b1000;
+        constexpr usize whiteQ = 0b0100;
+        constexpr usize blackK = 0b0010;
+        constexpr usize blackQ = 0b0001;
+
+        usize flags = 0;
+
+        if (this->can_castle(WHITE, KINGSIDE))
+            flags |= whiteK;
+        if (this->can_castle(WHITE, QUEENSIDE))
+            flags |= whiteQ;
+        if (this->can_castle(BLACK, KINGSIDE))
+            flags |= blackK;
+        if (this->can_castle(BLACK, QUEENSIDE))
+            flags |= blackQ;
+
+        return CASTLING_ZTABLE[flags];
+    }
+
+    u64 Board::hash_ep() const {
+        return EP_ZTABLE[this->ep_square.sq];
     }
 
     PieceType Board::read_sq(const Square sq) const {
@@ -169,7 +235,7 @@ namespace chess {
 
     Board::Board(const std::string& fen) {
         // Clear mailbox
-        this->reset_mailbox();
+        this->clear_mailbox();
 
         std::vector<std::string> tokens = split(fen, ' ');
 
@@ -219,6 +285,7 @@ namespace chess {
         else
             this->ep_square = Square(tokens[3]);
 
+        this->recompute_hash();
         this->update_check_pin_attack();
     }
 
@@ -228,6 +295,27 @@ namespace chess {
 
     BitBoard Board::pieces(const Color c) const {
         return this->color_bb[c];
+    }
+
+    void Board::recompute_hash() {
+        this->hash = 0;
+
+        for (const Color c : COLORS) {
+            for (const PieceType pt : PIECE_TYPES) {
+                BitBoard pcs = this->pieces(c, pt);
+
+                while (pcs) {
+                    const Square sq = pcs.pop_lsb();
+                    this->update_hash(sq, c, pt);
+                }
+            }
+        }
+
+        this->hash ^= hash_castling();
+        this->hash ^= hash_ep();
+
+        if (this->stm == BLACK)
+            this->hash ^= STM_ZHASH;
     }
 
     bool Board::in_check() const {
@@ -257,6 +345,9 @@ namespace chess {
 
     Board Board::move(const Move m) const {
         Board b = *this;
+
+        b.hash ^= b.hash_castling();
+        b.hash ^= b.hash_ep();
 
         b.ep_square = NO_SQUARE;
 
@@ -316,6 +407,11 @@ namespace chess {
         }
 
         b.stm = ~this->stm;
+
+        b.hash ^= b.hash_castling();
+        b.hash ^= b.hash_ep();
+        b.hash ^= STM_ZHASH;
+
         b.update_check_pin_attack();
 
         return b;
@@ -378,12 +474,14 @@ namespace chess {
     }
 
     std::ostream& operator<<(std::ostream& os, const Board& board) {
-        const auto line_info = [&board](int line) -> std::string {
+        const auto push_line_info = [&](int line) {
             if (line == 1)
-                return "FEN: " + board.fen();
-            if (line == 2)
-                return "En passant: " + (board.ep_square.is_none() ? "-" : board.ep_square.str());
-            if (line == 3) {
+                os << "FEN: " << board.fen();
+            else if (line == 2)
+                os << "Hash: 0x" << std::hex << std::uppercase << board.hash << std::dec;
+            else if (line == 2)
+                os << "En passant: " << (board.ep_square.is_none() ? "-" : board.ep_square.str());
+            else if (line == 3) {
                 std::string s = "";
                 if (board.can_castle(WHITE, KINGSIDE))
                     s += "K";
@@ -393,13 +491,12 @@ namespace chess {
                     s += "k";
                 if (board.can_castle(BLACK, QUEENSIDE))
                     s += "q";
-                return "Castling rights: " + (s.empty() ? "-" : s);
+                os << "Castling rights: " + (s.empty() ? "-" : s);
             }
-            if (line == 4)
-                return std::to_string(board.checkers.popcount()) + " checkers";
-            if (line == 5)
-                return std::to_string(board.pinned.popcount()) + " pinned pieces";
-            return "";
+            else if (line == 4)
+                os << std::to_string(board.checkers.popcount()) + " checkers";
+            else if (line == 5)
+                os << std::to_string(board.pinned.popcount()) + " pinned pieces";
         };
 
         os << "\u250c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2510\n";
@@ -412,7 +509,9 @@ namespace chess {
 
                 os << fmt::format(fmt::fg(fgColor), "{}", board.read_sq_char(sq)) << " ";
             }
-            os << "\u2502 " << rank + 1 << "   " << line_info(8 - rank) << "\n";
+            os << "\u2502 " << rank + 1 << "   ";
+            push_line_info(8 - rank);
+            os << "\n";
         }
         os << "\u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2518\n";
         os << "  a b c d e f g h\n";
