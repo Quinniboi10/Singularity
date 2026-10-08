@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <vector>
 #include <string>
 
@@ -11,6 +12,15 @@ inline std::vector<std::string> split(const std::string& str, const char delim) 
             res.back() += c;
 
     return res;
+}
+
+// Returns the index of the given target, -1 if not found
+inline int find(const auto& iterable, const auto& target) {
+    const auto idx = std::ranges::find(iterable, target);
+    if (idx == std::end(iterable))
+        return -1;
+    else
+        return std::distance(std::begin(iterable), idx);
 }
 
 // Formats a number with commas

@@ -56,8 +56,9 @@ int main() {
             else if (tokens[1] == "kiwipete")
                 board = Board("r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1");
 
-            if (tokens.size() > 9 && tokens[8] == "moves") {
-                for (int i = 9; i < tokens.size(); i++)
+            const int moves_idx = find(tokens, "moves");
+            if (moves_idx != -1) {
+                for (int i = moves_idx + 1; i < tokens.size(); i++)
                     board = board.move(Move(board, tokens[i]));
             }
         }
