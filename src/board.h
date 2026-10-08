@@ -96,6 +96,9 @@ namespace chess {
 
         u64 hash;
 
+        int halfmove_clock;
+        int fullmove_clock;
+
         Board(const std::string& fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
 
         template<PieceType pt>

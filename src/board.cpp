@@ -284,6 +284,10 @@ namespace chess {
             this->ep_square = NO_SQUARE;
         else
             this->ep_square = Square(tokens[3]);
+        
+        // Move clocks
+        this->halfmove_clock = tokens.size() > 4 ? std::stoi(tokens[4]) : 0;
+        this->fullmove_clock = tokens.size() > 5 ? std::stoi(tokens[5]) : 1;
 
         this->recompute_hash();
         this->update_check_pin_attack();
@@ -406,6 +410,15 @@ namespace chess {
                 b.revoke_castle(~this->stm, side);
         }
 
+        if (pt == PAWN || to_pt != NO_PIECE_TYPE)
+            b.halfmove_clock = 0;
+        else
+            b.halfmove_clock++;
+        
+        // Increment the fullmove clock if black just moved
+        if (b.stm == BLACK)
+            b.fullmove_clock++;
+
         b.stm = ~this->stm;
 
         b.hash ^= b.hash_castling();
@@ -469,6 +482,10 @@ namespace chess {
             res += "-";
         else
             res += this->ep_square.str();
+        
+        // Clocks
+        res += " " + std::to_string(this->halfmove_clock);
+        res += " " + std::to_string(this->fullmove_clock);
 
         return res;
     }
