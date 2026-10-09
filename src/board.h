@@ -16,7 +16,7 @@ namespace chess {
         return static_cast<Color>(other ^ 1);
     }
 
-    constexpr std::array COLORS = { WHITE, BLACK };
+    constexpr std::array COLORS = {WHITE, BLACK};
 
     enum PieceType {
         PAWN,
@@ -27,8 +27,8 @@ namespace chess {
         KING,
         NO_PIECE_TYPE
     };
-    
-    constexpr std::array PIECE_TYPES = { PAWN, KNIGHT, BISHOP, ROOK, QUEEN, KING };
+
+    constexpr std::array PIECE_TYPES = {PAWN, KNIGHT, BISHOP, ROOK, QUEEN, KING};
 
     enum CastlingSide {
         QUEENSIDE,

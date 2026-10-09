@@ -156,9 +156,7 @@ namespace chess {
 
     bool Board::move_allows_ep(const PieceType from, const Move m) const {
         const Square to = m.to();
-        return from == PAWN &&
-               m.ranks_moved() == 2 && 
-               (pieces(~stm, PAWN) & ((to.as_bb() & ~movegen::mask(FILE_H)).shift(EAST) | (to.as_bb() & ~movegen::mask(FILE_A)).shift(WEST)));
+        return from == PAWN && m.ranks_moved() == 2 && (pieces(~stm, PAWN) & ((to.as_bb() & ~movegen::mask(FILE_H)).shift(EAST) | (to.as_bb() & ~movegen::mask(FILE_A)).shift(WEST)));
     }
 
     int castle_idx(const Color c, const CastlingSide side) {
@@ -273,7 +271,7 @@ namespace chess {
             this->ep_square = NO_SQUARE;
         else
             this->ep_square = Square(tokens[3]);
-        
+
         // Move clocks
         this->halfmove_clock = tokens.size() > 4 ? std::stoi(tokens[4]) : 0;
         this->fullmove_clock = tokens.size() > 5 ? std::stoi(tokens[5]) : 1;
@@ -316,16 +314,16 @@ namespace chess {
 
         if (m.is_null())
             return hash;
-        
+
         const Color stm  = this->stm;
         const Color nstm = ~this->stm;
 
         const Square from = m.from();
         const Square to   = m.to();
-        
+
         const PieceType pt    = this->read_sq(from);
         const PieceType to_pt = this->read_sq(to);
-        
+
         hash ^= this->hash_ep();
 
         // From/to
@@ -339,7 +337,7 @@ namespace chess {
         // Capture
         if (to_pt != NO_PIECE_TYPE)
             hash ^= PIECE_ZTABLE[nstm][to_pt][to.sq];
-        
+
         return hash;
     }
 
@@ -453,7 +451,7 @@ namespace chess {
             b.halfmove_clock = 0;
         else
             b.halfmove_clock++;
-        
+
         // Increment the fullmove clock if black just moved
         if (b.stm == BLACK)
             b.fullmove_clock++;
@@ -521,7 +519,7 @@ namespace chess {
             res += "-";
         else
             res += this->ep_square.str();
-        
+
         // Clocks
         res += " " + std::to_string(this->halfmove_clock);
         res += " " + std::to_string(this->fullmove_clock);

@@ -520,7 +520,7 @@ namespace chess::movegen {
     }
 
     u64 _perft(const Board& board, const usize depth) {
-        #ifdef ENABLE_TESTS
+#ifdef ENABLE_TESTS
         {
             Board new_board = board;
             new_board.recompute_hash();
@@ -530,8 +530,8 @@ namespace chess::movegen {
                 std::exit(1);
             }
         }
-        #endif
-        
+#endif
+
         if (depth == 0)
             return 1;
 
@@ -542,13 +542,13 @@ namespace chess::movegen {
         for (const Move m : moves) {
             const Board new_board = board.move(m);
 
-            #ifndef ENABLE_TESTS
+#ifndef ENABLE_TESTS
             if (m.type() == STANDARD_MOVE && board.hash_castling() == new_board.hash_castling() && new_board.hash != board.approximate_hash_after(m)) {
                 std::cerr << "HASH CHECKS FAILED FOR " << m.str() << std::endl;
                 std::cerr << board << std::endl;
                 std::exit(1);
             }
-            #endif
+#endif
 
             nodes += _perft(new_board, depth - 1);
         }
