@@ -23,7 +23,7 @@ namespace chess {
             std::mt19937_64 engine(69420);
 
             MultiArray<u64, 2, 6, 64> piece_table;
-            std::array<u64, 65> ep_table;
+            std::array<u64, 64> ep_table;
             std::array<u64, 16> castling_table;
 
             // Fill piece table
@@ -154,6 +154,13 @@ namespace chess {
             this->pinned |= movegen::line_segment(pinners.pop_lsb(), king_sq) & friendly;
     }
 
+    bool Board::move_allows_ep(const PieceType from, const Move m) const {
+        const Square to = m.to();
+        return from == PAWN &&
+               m.ranks_moved() == 2 && 
+               (pieces(~stm, PAWN) & ((to.as_bb() & ~movegen::mask(FILE_H)).shift(EAST) | (to.as_bb() & ~movegen::mask(FILE_A)).shift(WEST)));
+    }
+
     int castle_idx(const Color c, const CastlingSide side) {
         return 2 * c + side;
     }
@@ -180,27 +187,9 @@ namespace chess {
         this->hash ^= PIECE_ZTABLE[c][pt][sq.sq];
     }
 
-    u64 Board::hash_castling() const {
-        constexpr usize whiteK = 0b1000;
-        constexpr usize whiteQ = 0b0100;
-        constexpr usize blackK = 0b0010;
-        constexpr usize blackQ = 0b0001;
-
-        usize flags = 0;
-
-        if (this->can_castle(WHITE, KINGSIDE))
-            flags |= whiteK;
-        if (this->can_castle(WHITE, QUEENSIDE))
-            flags |= whiteQ;
-        if (this->can_castle(BLACK, KINGSIDE))
-            flags |= blackK;
-        if (this->can_castle(BLACK, QUEENSIDE))
-            flags |= blackQ;
-
-        return CASTLING_ZTABLE[flags];
-    }
-
     u64 Board::hash_ep() const {
+        if (this->ep_square.is_none())
+            return 0;
         return EP_ZTABLE[this->ep_square.sq];
     }
 
@@ -322,6 +311,58 @@ namespace chess {
             this->hash ^= STM_ZHASH;
     }
 
+    u64 Board::approximate_hash_after(const Move m) const {
+        u64 hash = this->hash ^ STM_ZHASH;
+
+        if (m.is_null())
+            return hash;
+        
+        const Color stm  = this->stm;
+        const Color nstm = ~this->stm;
+
+        const Square from = m.from();
+        const Square to   = m.to();
+        
+        const PieceType pt    = this->read_sq(from);
+        const PieceType to_pt = this->read_sq(to);
+        
+        hash ^= this->hash_ep();
+
+        // From/to
+        hash ^= PIECE_ZTABLE[stm][pt][from.sq];
+        hash ^= PIECE_ZTABLE[stm][pt][to.sq];
+
+        // Double push
+        if (this->move_allows_ep(pt, m))
+            hash ^= EP_ZTABLE[(stm == WHITE ? from + NORTH : from + SOUTH).sq];
+
+        // Capture
+        if (to_pt != NO_PIECE_TYPE)
+            hash ^= PIECE_ZTABLE[nstm][to_pt][to.sq];
+        
+        return hash;
+    }
+
+    u64 Board::hash_castling() const {
+        constexpr usize whiteK = 0b1000;
+        constexpr usize whiteQ = 0b0100;
+        constexpr usize blackK = 0b0010;
+        constexpr usize blackQ = 0b0001;
+
+        usize flags = 0;
+
+        if (this->can_castle(WHITE, KINGSIDE))
+            flags |= whiteK;
+        if (this->can_castle(WHITE, QUEENSIDE))
+            flags |= whiteQ;
+        if (this->can_castle(BLACK, KINGSIDE))
+            flags |= blackK;
+        if (this->can_castle(BLACK, QUEENSIDE))
+            flags |= blackQ;
+
+        return CASTLING_ZTABLE[flags];
+    }
+
     bool Board::in_check() const {
         return this->checkers > 0;
     }
@@ -371,9 +412,7 @@ namespace chess {
         if (mt == STANDARD_MOVE) {
             b.set_sq(to, this->stm, pt);
 
-            // Only set the EP square if it could be taken
-            if (pt == PAWN && (to + NORTH_NORTH == from || to + SOUTH_SOUTH == from)
-                && (pieces(~stm, PAWN) & ((to.as_bb() & ~movegen::mask(FILE_H)).shift(EAST) | (to.as_bb() & ~movegen::mask(FILE_A)).shift(WEST))))
+            if (b.move_allows_ep(pt, m))
                 b.ep_square = stm == WHITE ? from + NORTH : from + SOUTH;
         }
         else if (mt == PROMOTION) {

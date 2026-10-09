@@ -542,6 +542,14 @@ namespace chess::movegen {
         for (const Move m : moves) {
             const Board new_board = board.move(m);
 
+            #ifndef ENABLE_TESTS
+            if (m.type() == STANDARD_MOVE && board.hash_castling() == new_board.hash_castling() && new_board.hash != board.approximate_hash_after(m)) {
+                std::cerr << "HASH CHECKS FAILED FOR " << m.str() << std::endl;
+                std::cerr << board << std::endl;
+                std::exit(1);
+            }
+            #endif
+
             nodes += _perft(new_board, depth - 1);
         }
 

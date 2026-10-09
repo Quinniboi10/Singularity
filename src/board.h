@@ -74,7 +74,6 @@ namespace chess {
 
         void update_hash(Square sq, Color c, PieceType pt);
 
-        u64 hash_castling() const;
         u64 hash_ep() const;
 
         char read_sq_char(Square sq) const;
@@ -84,6 +83,8 @@ namespace chess {
 
         void clear_mailbox();
         void update_check_pin_attack();
+
+        bool move_allows_ep(PieceType from, Move m) const;
 
        public:
         Color stm;
@@ -125,6 +126,9 @@ namespace chess {
         BitBoard pieces(Color c) const;
 
         void recompute_hash();
+        u64 approximate_hash_after(Move m) const;
+
+        u64 hash_castling() const;
 
         bool in_check() const;
 

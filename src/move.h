@@ -29,6 +29,10 @@ namespace chess {
 
         static Move null();
 
+        bool is_null() const;
+
+        int ranks_moved() const;
+
         Square from() const;
         Square to() const;
 

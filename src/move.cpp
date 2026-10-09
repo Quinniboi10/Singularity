@@ -58,6 +58,14 @@ namespace chess {
         return Move(a1, a1, STANDARD_MOVE);
     }
 
+    bool Move::is_null() const {
+        return move == Move::null().move;
+    }
+
+    int Move::ranks_moved() const {
+        return std::abs(static_cast<int>(this->from().rank() - this->to().rank()));
+    }
+
     Square Move::from() const {
         return Square(this->move & 0b111111);
     }
