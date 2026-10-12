@@ -1,3 +1,4 @@
+#include <unordered_map>
 #include <algorithm>
 #include <vector>
 #include <string>
@@ -35,6 +36,19 @@ inline std::string str_lower(const std::string& str) {
     }
 
     return res;
+}
+
+// Takes a string of '<key> <value> <key> <value> ...' and returns a map between the two
+inline std::unordered_map<std::string, std::string> parse_command_pairs(const std::string& str) {
+    std::unordered_map<std::string, std::string> map{};
+
+    const std::vector<std::string> tokens = split(str, ' ');
+
+    for (int i = 0; i < tokens.size() - 1; i += 2) {
+        map[tokens[i]] = tokens[i + 1];
+    }
+
+    return map;
 }
 
 // Formats a number with commas

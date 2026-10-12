@@ -53,5 +53,5 @@ namespace chess::movegen {
 
     MoveList generate_moves(const Board& board);
 
-    void perft(const Board& board, usize depth, bool use_bulk);
+    void perft(const Board& board, const std::string& cmd, bool use_bulk);
 }

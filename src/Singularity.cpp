@@ -86,9 +86,9 @@ int main() {
         }
 
         if (tokens[0] == "perft")
-            movegen::perft(board, std::stoi(tokens[1]), false);
+            movegen::perft(board, command, false);
         if (tokens[0] == "bulk")
-            movegen::perft(board, std::stoi(tokens[1]), true);
+            movegen::perft(board, command, true);
 
         if (command == "quit" || command == "exit")
             return 0;

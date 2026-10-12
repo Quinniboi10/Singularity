@@ -9,6 +9,7 @@
 #include "board.h"
 #include "utils.h"
 #include "move.h"
+#include "tt.h"
 
 namespace chess::movegen {
     MultiArray<BitBoard, 64, 64> LINE;
@@ -519,7 +520,7 @@ namespace chess::movegen {
         return moves;
     }
 
-    u64 _perft(const Board& board, const usize depth) {
+    u64 _perft(const Board& board, const usize depth, std::optional<MovegenTranspositionTable>& tt) {
 #ifdef ENABLE_TESTS
         {
             Board new_board = board;
@@ -534,6 +535,14 @@ namespace chess::movegen {
 
         if (depth == 0)
             return 1;
+        
+        MovegenTTEntry* tt_entry = nullptr;
+        if (tt.has_value()) {
+            tt_entry = &tt->get(board.hash);
+            if (tt_entry->hash == board.hash && tt_entry->depth == depth) {
+                return tt_entry->num_moves;
+            }
+        }
 
         u64 nodes = 0;
 
@@ -550,17 +559,30 @@ namespace chess::movegen {
             }
 #endif
 
-            nodes += _perft(new_board, depth - 1);
+            nodes += _perft(new_board, depth - 1, tt);
+        }
+
+        if (tt_entry && depth > tt_entry->depth) {
+            *tt_entry = MovegenTTEntry(board.hash, depth, nodes);
         }
 
         return nodes;
     }
 
-    u64 _bulk(const Board& board, const usize depth) {
+    u64 _bulk(const Board& board, const usize depth, std::optional<MovegenTranspositionTable>& tt) {
         if (depth == 0)
             return 1;
         if (depth == 1)
             return generate_moves(board).size();
+        
+        MovegenTTEntry* tt_entry = nullptr;
+        u64 hash;
+        if (tt.has_value()) {
+            tt_entry = &tt->get(board.hash);
+            if (tt_entry->hash == board.hash && tt_entry->depth == depth) {
+                return tt_entry->num_moves;
+            }
+        }
 
         u64 nodes = 0;
 
@@ -569,13 +591,30 @@ namespace chess::movegen {
         for (const Move m : moves) {
             const Board new_board = board.move(m);
 
-            nodes += _bulk(new_board, depth - 1);
+            nodes += _bulk(new_board, depth - 1, tt);
+        }
+
+        if (tt_entry && depth > tt_entry->depth) {
+            *tt_entry = MovegenTTEntry(board.hash, depth, nodes);
         }
 
         return nodes;
     }
 
-    void perft(const Board& board, const usize depth, const bool use_bulk) {
+    void perft(const Board& board, const std::string& cmd, const bool use_bulk) {
+        const auto params = parse_command_pairs(cmd);
+
+        int depth = std::stoi(params.contains("perft") ? params.at("perft") : params.at("bulk"));
+        int hash_size = params.contains("hash") ? stoi(params.at("hash")) : 0;
+
+        std::optional<MovegenTranspositionTable> tt;
+        if (hash_size == 0) {
+            tt = std::nullopt;
+        }
+        else {
+            tt = MovegenTranspositionTable(hash_size);
+        }
+
         u64 nodes = 0;
 
         Stopwatch<std::chrono::milliseconds> stopwatch{};
@@ -585,7 +624,7 @@ namespace chess::movegen {
         for (const Move m : moves) {
             const Board new_board = board.move(m);
 
-            const u64 nodes_this_move = use_bulk ? _bulk(new_board, depth - 1) : _perft(new_board, depth - 1);
+            const u64 nodes_this_move = use_bulk ? _bulk(new_board, depth - 1, tt) : _perft(new_board, depth - 1, tt);
 
             nodes += nodes_this_move;
             std::cout << m.str() << ": " << nodes_this_move << std::endl;
