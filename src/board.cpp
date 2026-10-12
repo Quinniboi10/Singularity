@@ -13,6 +13,7 @@
 #include "movegen.h"
 #include "assert.h"
 #include "square.h"
+#include "config.h"
 #include "utils.h"
 #include "move.h"
 
@@ -35,8 +36,6 @@ namespace chess {
             // Fill EP table
             for (u64& ep : ep_table)
                 ep = engine();
-
-            ep_table[NO_SQUARE.sq] = 0;
 
             // Fill STM hash
             u64 stm_hash = engine();
@@ -88,8 +87,10 @@ namespace chess {
         if (is_upper)
             c += 'a' - 'A';
 
-        const Color color       = is_upper ? WHITE : BLACK;
-        const CastlingSide side = c == 'k' ? KINGSIDE : QUEENSIDE;
+        const Color color = is_upper ? WHITE : BLACK;
+
+        const bool is_kingside = c == 'k' || this->pieces(color, KING).get_lsb().file() > c - 'a';
+        const CastlingSide side = is_kingside ? KINGSIDE : QUEENSIDE;
 
         const Direction dir  = side == KINGSIDE ? EAST : WEST;
         const Square king_sq = this->pieces(color, KING).get_lsb();
@@ -266,6 +267,18 @@ namespace chess {
             }
         }
 
+        // Check for FRC conditions
+        for (const Color c : { WHITE, BLACK }) {
+            for (const CastlingSide side : { KINGSIDE, QUEENSIDE }) {
+                const Square sq = this->castle_sq(c, side);
+                if (!sq.is_none() && (this->pieces(c, KING).get_lsb().file() != FILE_E || (sq.file() != FILE_A && sq.file() != FILE_H))) {
+                    singularity_config.uci_chess960 = true;
+                    goto end_frc_check;
+                }
+            }
+        }
+end_frc_check:
+
         // EP
         if (tokens[3][0] == '-')
             this->ep_square = NO_SQUARE;
@@ -404,7 +417,7 @@ namespace chess {
 
         b.clear_sq(from, this->stm, pt);
 
-        if (to_pt != NO_PIECE_TYPE)
+        if (to_pt != NO_PIECE_TYPE && mt != CASTLE)
             b.clear_sq(to, ~this->stm, to_pt);
 
         if (mt == STANDARD_MOVE) {
@@ -551,6 +564,8 @@ namespace chess {
                 os << std::to_string(board.checkers.popcount()) + " checkers";
             else if (line == 5)
                 os << std::to_string(board.pinned.popcount()) + " pinned pieces";
+            else if (line == 6)
+                os << "Chess960 mode: " << (singularity_config.uci_chess960 ? "ENABLED" : "DISABLED");
         };
 
         os << "\u250c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2510\n";

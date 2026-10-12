@@ -1,6 +1,7 @@
 #include "move.h"
 
 #include "assert.h"
+#include "config.h"
 #include "square.h"
 #include "board.h"
 
@@ -41,8 +42,9 @@ namespace chess {
         }
 
         // Castling
-        if ((from == e1 && to == g1 && board.can_castle(WHITE, KINGSIDE)) || (from == e1 && to == c1 && board.can_castle(WHITE, QUEENSIDE))
-            || (from == e8 && to == g8 && board.can_castle(BLACK, KINGSIDE)) || (from == e8 && to == c8 && board.can_castle(BLACK, QUEENSIDE))) {
+        const bool is_normal_castle = (from == e1 && to == g1 && board.can_castle(WHITE, KINGSIDE)) || (from == e1 && to == c1 && board.can_castle(WHITE, QUEENSIDE))
+            || (from == e8 && to == g8 && board.can_castle(BLACK, KINGSIDE)) || (from == e8 && to == c8 && board.can_castle(BLACK, QUEENSIDE));
+        if (singularity_config.uci_chess960 ? board.pieces(board.stm, ROOK).read_sq(to) : is_normal_castle) {
             to    = board.castle_sq(board.stm, to.sq > from.sq ? KINGSIDE : QUEENSIDE);
             *this = Move(from, to, CASTLE);
             return;
@@ -84,12 +86,15 @@ namespace chess {
     }
 
     std::string Move::str() const {
+        if (this->is_null())
+            return "NULL MOVE";
+
         const MoveType mt = this->type();
 
         const Square from = this->from();
         const Square to   = this->to();
 
-        if (mt == STANDARD_MOVE || mt == EN_PASSANT)
+        if (mt == STANDARD_MOVE || mt == EN_PASSANT || mt == CASTLE && singularity_config.uci_chess960)
             return from.str() + to.str();
         if (mt == CASTLE) {
             const bool is_kingside = to.sq > from.sq;

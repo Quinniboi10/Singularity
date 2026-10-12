@@ -75,7 +75,7 @@ release: all
 
 # Debug build
 .PHONY: debug
-debug: CXXFLAGS = -std=c++23 -O2 -fno-inline-functions -flto -ggdb -DDEBUG -fsanitize=address -fsanitize=undefined -fno-finite-math-only -fno-omit-frame-pointer -Wall -Wextra
+debug: CXXFLAGS = -std=c++23 -O2 -fno-inline-functions -flto -ggdb -DDEBUG -fsanitize=address -fsanitize=undefined -fno-finite-math-only -fno-omit-frame-pointer -lstdc++exp -Wall -Wextra
 debug: all
 
 # Debug build

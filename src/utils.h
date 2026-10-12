@@ -23,6 +23,20 @@ inline int find(const auto& iterable, const auto& target) {
         return std::distance(std::begin(iterable), idx);
 }
 
+inline std::string str_lower(const std::string& str) {
+    std::string res = "";
+    for (const char c : str) {
+        if (c >= 'A' && c <= 'Z') {
+            res += c - 'A' + 'a';
+        }
+        else {
+            res += c;
+        }
+    }
+
+    return res;
+}
+
 // Formats a number with commas
 template<typename T>
 inline std::string format_num(const T v) {

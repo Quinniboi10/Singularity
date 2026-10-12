@@ -2,6 +2,7 @@
 #include <string>
 
 #include "movegen.h"
+#include "config.h"
 #include "utils.h"
 
 #ifdef _WIN32
@@ -32,13 +33,34 @@ int main() {
         std::getline(std::cin, command);
         std::vector<std::string> tokens = split(command, ' ');
 
+        if (command.empty())
+            continue;
+
         if (command == "uci") {
             std::cout << "id name Singularity" << std::endl;
             std::cout << "id author Quinniboi10" << std::endl;
+            std::cout << "option name UCI_Chess960 type check default false" << std::endl;
             std::cout << "uciok" << std::endl;
         }
         if (command == "isready")
             std::cout << "readyok" << std::endl;
+        
+        if (tokens[0] == "setoption") {
+            const std::string& name = str_lower(tokens[2]);
+            const std::string value = [&]() {
+                std::string res = "";
+                for (int i = find(tokens, "value") + 1; i < tokens.size(); i++) {
+                    res += tokens[i];
+                    if (i < tokens.size() - 1) {
+                        res += " ";
+                    }
+                }
+                return res;
+            }();
+            if (name == "uci_chess960") {
+                singularity_config.uci_chess960 = str_lower(value) == "true";
+            }
+        }
 
         if (command == "d")
             std::cout << board << std::endl;
